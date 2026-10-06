@@ -14,7 +14,7 @@ Next.js storefront, каталог, PDP, корзина, checkout UI, ЛК, admi
 
 ## Правила
 
-- UI поддерживает guest checkout и SMS вход; OAuth/избранное не появляются в MVP самостоятельно.
+- Первый этап поддерживает гостевую корзину и оформление локальной заявки без оплаты/доставки. SMS/ЛК — следующий коммерческий этап по MVP_SCOPE; OAuth/избранное не появляются самостоятельно.
 - Все операции через Elton API; ошибки, stale stock, pending/unknown payment и recovery отражаются честно.
 - Финальная сумма/доступность приходит от API; не сохранять order/payment правду в localStorage.
 - Admin API permission проверяется сервером, скрытая кнопка не является защитой.
@@ -23,7 +23,7 @@ Next.js storefront, каталог, PDP, корзина, checkout UI, ЛК, admi
 
 ## Первый пакет работы
 
-После contract review сделать catalog/PDP/cart UI по API mocks. Затем admin UI и ЛК. Checkout подключать к реальному provider flow после Ozon gate. Для mock preview явно обозначить демонстрационный режим, не выдавать его за принятие оплаты.
+После contract review сделать catalog/PDP/cart UI по API mocks, затем подключить к Elton API и PG. Сделать форму контактов/адреса и результат локальной заявки, minimal admin UI. Оплата/доставка отключены и честно обозначены в интерфейсе; provider flow, SMS и ЛК подключаются на следующем этапе. Демо не выдавать за принятие оплаты или одобрение подключения Ozon.
 
 ## Готовность
 

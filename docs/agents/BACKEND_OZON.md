@@ -27,7 +27,7 @@ Seller/Performance read credentials, Pay/Delivery credentials и SMS credentials
 
 ## Первый пакет работы
 
-Ozon contract spike и sanitised evidence. Затем core catalog/cart/auth/order/payment states с deterministic fake provider для tests. Реальный adapter включать только по закрытым gates; admin status actions не меняют provider status вручную.
+Сначала основа API/PG, каталог/цены/комплекты, серверная гостевая корзина, protected admin и локальная демонстрационная заявка по обновлённым DATABASE/API. Реальные Pay/Delivery, SMS и Ozon sync выключены; сохранение заявки не вызывает provider, не создаёт financial fact, reserve FBO или `purchase`. Ozon contract spike и real adapters — следующий коммерческий этап; включать только по закрытым gates. Admin не меняет provider/payment status вручную.
 
 ## Готовность
 

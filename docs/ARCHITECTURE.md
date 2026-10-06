@@ -1,12 +1,74 @@
 # Solution Architecture — Elton Decor
 
-Дата: 2026-10-06. Статус: **предложение для подготовки MVP**, не утверждение разработки, не описание действующей системы. Бизнес-источник — BA интервью; статусы требований и решений фиксируются в [PRODUCT.md](PRODUCT.md), [BUSINESS_RULES.md](BUSINESS_RULES.md) и [DECISIONS.md](DECISIONS.md). Технические алгоритмы здесь требуют архитектурного review/согласования.
+Дата: 2026-10-06. **Архитектурный проект основы, требует Backend review до реализации.** BA-SCOPE-01/BR-27 утверждены заказчиком; технический дизайн не означает customer approval. Приложения, миграции и инфраструктура не созданы.
 
-## 1. Границы решения
+## 1. Основание и трассировка
 
-Один monorepo, один API, одна локальная модель заказа. Storefront и admin — два интерфейса этого API. PostgreSQL хранит локальные заказы, снимки цен, решения по возвратам и финансовый журнал. Провайдер является источником подтверждённых платежей и статусов исполнения. Сведения маркетплейса хранятся с `channel=ozon_marketplace`, покупки сайта — с `channel=site`: внешние продажи нельзя незаметно сделать заказами сайта.
+Прочитаны AGENTS.md, профиль docs/agents/ARCHITECT.md, PRODUCT, MVP_SCOPE, BUSINESS_RULES, ARCHITECTURE, DATABASE, API, OZON_INTEGRATION, DECISIONS, SECURITY, DEPLOYMENT, QA, BACKLOG. Remote база: `142c0a1186a48994b26048c06182c0ea1757049d`; BA FREEZE от 2026-10-06 с BA-SCOPE-01 — вход этой задачи. В локальной папке нет .git; document PR branch: `docs/stage1-ozon-onboarding`; итоговый PR commit зафиксирует обновления.
 
-Целевой MVP покрывает CAT-01–06 (каталог), ORD-01–05 (гостевая корзина/checkout), ACC-01–03 (SMS вход и кабинет), RET-01–03 (возврат с фото и решение с причиной отказа), ADM-01–08 (администрирование). Статусы каждого требования — в [PRODUCT.md](PRODUCT.md): Ozon checkout/отзывы условны, отдельный email/password admin и ряд механик предложены/открыты. Публичный каталог содержит согласованные категории, Hero и товары; регистрации перед покупкой нет. Избранное, OAuth, loyalty, блог и AI относятся к V2. Глубина истории цен, варианты и правила наборов требуют решения заказчика.
+Основа: CAT-01…05, ORD-01…03, ADM-01/03/05/06; ограничения CAT-06, ORD-04/05, BR-01…09/12/14/17/18/24/25/27; S1-01…S1-06. BR-15 сохраняет предложенный статус. Область Architect: ARCHITECTURE/DATABASE/API/OZON_INTEGRATION/DECISIONS и [план основы](superpowers/plans/2026-10-06-stage1-foundation.md).
+
+## 2. Активная основа этапа 1
+
+Один monorepo, один Elton API, PostgreSQL. Два приложения Next.js/TypeScript: storefront и отдельный admin; FastAPI/Pydantic — рекомендованный Python API, SQLAlchemy/Alembic — единственный владелец схемы в packages/database. Рекомендация workspace tooling: pnpm для TypeScript, uv для Python; решение проходит bootstrap review. Версии/tooling выбираются при bootstrap по поддерживаемым совместимым stable releases и фиксируются lockfiles; точных непроверенных версий здесь нет.
+
+```mermaid
+flowchart LR
+  Guest[Гость с синтетическими данными] --> Store[Storefront]
+  Owner[Администратор] --> Admin[Отдельный admin]
+  Store --> API[Elton API]
+  Admin --> API
+  API --> PG[(PostgreSQL)]
+  API --> Media[Локальное хранилище товарных медиа]
+```
+
+Bootstrap требует storefront/admin/API/PG и локальные товарные медиа. Redis/Celery, SMS, customer profile, Pay/Delivery/FBO, provider credentials, outbox/inbox и ledger не являются зависимостями. Server capabilities: real_checkout/payment/delivery/stock_reservation/sms/customer_account/returns/refunds/reviews = false. Прямой вызов недоступной операции отклоняется до adapter/network call, без simulated success.
+
+| Путь | Ответственность / владелец |
+| --- | --- |
+| apps/storefront | Frontend: hero, каталог/PDP, server cart, форма синтетических контактов/адреса, результат |
+| apps/admin | Frontend: защищённый UI каталога/медиа/цен/BOM/списка заявок |
+| apps/api | Backend/Ozon: HTTP, catalog/cart/draft services, server authorization, capabilities; core rules |
+| packages/database | Backend с Architect review: Python models/repositories/Alembic, единственный владелец PG |
+| packages/ui | Frontend: общие TS компоненты/токены |
+| packages/api-client | Frontend после freeze API: сгенерированные OpenAPI TS types и wrapper |
+| packages/ozon | Будущие Python adapters этапа 2; не обязательный runtime основы |
+| packages/analytics | Будущая аналитика; локальная заявка не создаёт purchase/выручку |
+| docs | Контракт перед реализацией; DB/API изменения в том же согласованном PR |
+
+Frontend читает только API, не PG/Ozon. Public catalog сначала no-store, без обязательного cache worker; cart/draft/admin — private/no-store. Наличие unknown, без числа FBO. Supabase PG/Storage и Vercel — hosting candidates; Supabase Auth/Shopify order authority не вводятся.
+
+## 3. Первый вертикальный сценарий
+
+1. Случайная persistent HttpOnly guest cookie; hash/expiry в PG. Это гостевая сессия без SMS/аккаунта. Предлагаемый demo срок 7 дней, quote 15 минут — технические параметры испытаний, не утверждённая retention/recovery политика.
+2. Cart принадлежит guest session в PG. PUT количества/DELETE меняют version под lock; If-Match предотвращает потерю правки. Цена всегда серверная. Cookie переживает закрытие браузера в своём сроке; её удаление теряет proof, телефон не восстанавливает доступ.
+3. POST draft-quotes фиксирует cart_version и product/price/BOM versions со снимком. Товарная сумма в minor units. delivery.state=not_connected, delivery.amount=null, payable_total=null: goods_total не полная цена покупки. Quote не резервирует локальный/FBO запас.
+4. UI показывает состав/товарную сумму и отключение оплаты/доставки. Контакты/адрес — отдельный предложенный demo DTO, не provider contract и не ACC-02 profile. Все demo данные синтетические; реальные данные требуют отдельного допуска.
+5. POST checkout-drafts с Idempotency-Key и quote ID в одной PG transaction проверяет owner, quote/cart/catalog versions/expiry; сохраняет immutable contact/address/line/component snapshots + state=saved + idempotency result. Нет operation/outbox/payment/fulfillment/reservation/ledger. Cart остаётся редактируемым.
+6. Lost response: тот же key/body возвращает сохранённый draft. Replay проверяет действующую session/owner до выдачи и выполняется до expiry/consumed guard quote. Тот же key с другим body конфликтует; новый key с consumed quote → QUOTE_USED. Изменённая цена/BOM до commit требует нового quote и явного подтверждения, без autosubmit.
+7. GET checkout-drafts/{id} требует guest owner; admin использует отдельный admin endpoint. Чужой/неизвестный ID дают одинаковый 404. UUID/телефон/query token/localStorage не доказательство доступа.
+
+Quote: valid → consumed только в commit draft; expired — вычисленная недоступность по expires_at. Draft: только saved; editing — форма/cart, не business state. Отмена/оплата/исполнение не существуют. Этап 2 не продвигает saved автоматически: будущая согласованная command после свежего quote, наличия/доставки и нового подтверждения пользователя может создать новый commercial order со ссылкой на draft. Этот контракт сейчас не активен.
+
+## 4. Каталог, комплекты и minimal admin
+
+Согласованные категории CAT-01, title/description/SKU/type, характеристики/SEO, статические подборки/связи «С этим сочетается», versioned site price. CAT-03/Q-09 требуют review; demo query title/SKU, category, price sort — пробный внутренний контракт, не утверждение финального UX.
+
+Bundle имеет собственную site price и versioned BOM. Предложенная BR-12 валидация: непустые existing single SKU, positive integer qty, одинаковые SKU суммируются, nested bundle запрещён. Draft замораживает SKU/title/qty/base site price компонентов. Base prices не net allocations/refund shares: BR-15/ADR-011 не утверждены. goods_total = сумма top-level lines, компоненты повторно не прибавляются. Unknown FBO не препятствует сохранению демонстрационного состава.
+
+Admin permissions/scope isolation проверяет сервер. ADM-01 email/password/server session остаётся предложением: модели/UI/contracts готовятся, login реализуется после согласования. Открытый admin не закрывает S1-05. Argon2id/отдельная cookie/session/CSRF — рекомендации SECURITY; bootstrap/recovery и параметры требуют implementation review.
+
+Media — admin file upload без fetch URL (SSRF). Локальный storage вне web-root, server UUID key; quarantine до проверки реального типа/декодирования/размера/metadata. HTML/SVG/scripts и неподтверждённое видео отклоняются. Только verified public товарные derivatives доступны storefront. API demo limits — технические рекомендации, не объём реального медиакомплекта. Private return media — этап 2. Admin меняет товар/site price/BOM, видит saved drafts; ручной paid/delivered/FBO отсутствует.
+
+## 5. Review и готовность основы
+
+[DATABASE.md](DATABASE.md) задаёт три additive migrations, [API.md](API.md) — DTO/ошибки/guards. Backend review: atomic idempotency+snapshot, immutable BOM/деньги, нормализация request hash, versions/ownership. QA использует настоящую PG; browser persistence не доказывает durability. Последовательные owner tasks — в плане; shared contracts меняет Architect с Backend review.
+
+Открыто: ADM-01 блокирует login/приёмку admin; Q-09 — final catalog content; TTL/contact DTO — technical demo review; hosting/region/PII/retention — live preview/data/release; BR-15 — net allocation/refund, не BOM snapshot. Ozon gates блокируют этап 2, не bootstrap. S1-01…06 закрываются работающим demo/отчётом, не документами. Production/необратимые миграции требуют DEPLOYMENT допуска.
+
+## Сохранённый target этапа 2
+
+Разделы ниже — **будущая коммерческая архитектура**, не обязательные сервисы/DDL/API основы. BA-SCOPE-01 supersedes прежний порядок полного checkout до витрины; исходный scope остаётся после gates.
 
 ## 2. Компоненты и границы доверия
 
@@ -67,7 +129,7 @@ API и worker используют одни application services и state transi
 ## 5. Процесс покупки
 
 1. Гостевая корзина привязана к случайной серверной сессии. API проверяет количество и актуальные цены. Корзина не обещает наличие.
-2. Quote фиксирует состав, цену, распределение скидки, доставку и срок действия. Доставка и допустимый порядок оплаты/создания внешнего заказа зависят от проверенного контракта Ozon.
+2. После утверждения BR-15 коммерческий quote фиксирует состав, цену, согласованное распределение скидки, подтверждённую доставку и срок действия. Доставка и допустимый порядок оплаты/создания внешнего заказа зависят от проверенного контракта Ozon.
 3. В транзакции checkout API блокирует нужные строки, проверяет quote/version, создаёт order + price/component snapshots + локальные reservations + operation + outbox. Commit происходит до обращения к провайдеру.
 4. Worker исполняет операцию с устойчивым idempotency key. Если ответ потерян, сверяет результат по документированному механизму. Повторное списание запрещено.
 5. UI получает `processing`, затем session/redirect либо уточнённую ошибку. Return URL сам по себе не подтверждает оплату. Callback сохраняется после проверки; worker проверяет объект у провайдера и изменяет отдельные state machines.
@@ -116,7 +178,7 @@ Bundle хранит versioned bill of materials. Quote фиксирует ком
 
 Gemini — возможный будущий аналитический агент V2: читает минимизированные/агрегированные данные через scoped tools, рекомендации проходят человека. Он не является источником статуса платежа/заказа, не имеет прямого PG write и не меняет цену/возврат автономно. В MVP LLM runtime и credentials не нужны.
 
-## 10. Gates до разработки и запуска
+## 10. Gates до коммерческой разработки и запуска этапа 2
 
 | Gate | Проверяемый результат | Блокируемая часть |
 |---|---|---|
@@ -126,4 +188,4 @@ Gemini — возможный будущий аналитический аген
 | ARCH-G4 Business decisions | Bundle return policy, guest claiming, цена/варианты/история, сроки reservations | Финальная UX/схема и acceptance |
 | ARCH-G5 Operational readiness | Secret management, backup restore, RBAC/IDOR/CSRF, upload scan, reconciliation drill | Production запуск |
 
-До закрытия ARCH-G1–G3 можно готовить каталог, admin prototype и внутренний контракт; публичные покупки с неподтверждённой интеграцией запускать нельзя. Открытые решения Q-01–11 фиксируются в DECISIONS, не принимаются неявно этим документом. ARCH-gates детализируют продуктовые gates MVP_SCOPE и не заменяют QA/release gates.
+До закрытия ARCH-G1–G3 выполняется локальная основа этапа 1; публичные покупки с неподтверждённой интеграцией запускать нельзя. Открытые решения Q-01–11 фиксируются в DECISIONS, не принимаются неявно этим документом. ARCH-gates детализируют продуктовые gates MVP_SCOPE и не заменяют QA/release gates.
