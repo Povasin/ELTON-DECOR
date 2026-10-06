@@ -1,0 +1,36 @@
+# Secrets and private interview/merchant data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+private/
+work/
+outputs/
+*.docx
+*.xlsx
+*.csv
+
+# Runtime/build/dependencies
+node_modules/
+.next/
+.turbo/
+.vercel/
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+.DS_Store
+Thumbs.db
