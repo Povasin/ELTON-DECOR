@@ -23,7 +23,7 @@
 
 ## Первый пакет работы
 
-Трассировать acceptance requirements → checks; проверить docs/contracts. После bootstrap добавить CI для реально существующих manifests, а затем integration/e2e. Подготовить выбранный runtime и провести restore/callback outage drill в staging.
+Трассировать S1-01…06 и QA1 checks: local catalog/cart/draft/admin, PG money/snapshot/idempotency/ownership, отсутствие внешних calls и ложных paid/delivered/purchase. После bootstrap добавить CI для реально существующих manifests, затем UI/API e2e и synthetic preview. Provider callbacks/SMS/refund/restore outage drills коммерческого runtime — следующий этап; отсутствие Ozon access не блокирует local основу.
 
 ## Готовность
 

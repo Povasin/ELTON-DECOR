@@ -2,6 +2,18 @@
 
 Дата: 2026-10-06. Статус: **план проверки интеграции**, работающий checkout и доступ Elton Decor к API не подтверждены. ORD-04, ACC-03, RET-03 и продажа комплектов остаются условными/открытыми. Никакие credentials, реальные account IDs или договорные данные в документ не включены.
 
+## 0. Этап 1: подготовка без провайдерских фактов
+
+BA-SCOPE-01/BR-27 от 2026-10-06 утверждают локальную основу для демонстрации/начала подключения, не допуск Ozon. Трассировка: ORD-04/05, CAT-06, ADM-06/07, BR-02/10/14/15/17/18/24/25/27, S1-04/06. Версия документов/remote база — ARCHITECTURE §1. Нового live API evidence в этой документационной задаче не получено; исторические ссылки/индекс ниже не повышают статус доступа.
+
+Первый путь storefront → Elton API → PostgreSQL сохраняет checkout_draft(state=saved), отдельный goods_total и snapshots. delivery.state=not_connected, delivery.amount=null, payable_total=null. Нет внешнего заказа, Seller posting, тарифа/ПВЗ/срока, FBO guarantee, payment/refund/ledger/purchase, настоящего SMS или customer profile. Сохранение BOM/base component prices не означает BR-15 net allocation, fulfillment или возможность partial refund.
+
+Capabilities Pay/Delivery/Seller stock/real_checkout/reviews/SMS/refunds выключены на сервере; known disabled client command → CAPABILITY_DISABLED, unregistered provider callback →404. Ошибка не возвращает фиктивный external ID/paid/zero stock/free delivery. Bootstrap не создаёт Ozon client runtime и не требует provider secrets; если adapter boundary подготовлен, его unsupported result — явная ошибка, не mock success. QA доказывает zero outbound calls и absence provider/financial writes для прямых запросов к отключённым операциям. Только test double для этой отрицательной проверки не является интеграционной проверкой Ozon.
+
+Для будущего подключения остаются interfaces/gates ниже. OZ-G1…6 блокируют коммерческий этап 2 и соответствующие capabilities, не каталог/корзину/локальную заявку. Saved drafts не отправляются автоматически после появления merchant key или смены flag. Требуется новая согласованная commercial command, fresh quote/availability/delivery, новое подтверждение пользователя и protected owner proof; контакт/телефон старой заявки не заменяет это. Такой migration/promotion flow пока не утверждён.
+
+Пакет для начала onboarding: разрешённый synthetic demo магазина с видимыми ограничениями, список требуемых capabilities/вопросов и текущий evidence register. Список официально требуемых onboarding документов неизвестен и не придумывается; запросить через безопасный канал у провайдера в OZ-G1. Не отправлять PII/фото/ключи/финансовые payload в AI/design tools. Реальный sandbox/provider contract оформляются отдельной задачей после предоставления доступа.
+
 ## 1. Три разных уровня доказательства
 
 ### Официальная продуктовая страница — текущая проверка
@@ -86,7 +98,7 @@ Spike устанавливает значение available/free/reserved/on-han
 
 BR-14: flatten bundle в компоненты допустим только после доказательства, что внешний flow принимает нужные component IDs/qty и правильно осуществляет комплектацию, резерв, цену, delivery, cancel и partial refund. Независимая отгрузка нескольких коробок может требовать отдельного UX/сроков; единый комплект не предполагается автоматически.
 
-BR-15: server сохраняет детерминированные allocations в order snapshot; суммы внешних строк/чека сверяются с локальным total. Если провайдер принимает только готовый Seller bundle SKU, требуется согласованный mapping/process. До gate неизвестное bundle fulfilment не маскируется обычным single SKU checkout.
+BR-15 остаётся предложенным алгоритмом: после согласования server сохраняет детерминированные allocations в commercial order snapshot; суммы внешних строк/чека сверяются с локальным total. Если провайдер принимает только готовый Seller bundle SKU, требуется согласованный mapping/process. До gate неизвестное bundle fulfilment не маскируется обычным single SKU checkout.
 
 Cancellation требует reason (ACC-03) и provider state guard. После confirmed cancel локальные reservations корректируются по stock contract; captured payment требует отдельного проверенного refund flow. Partial refund должен поддерживать сумму/позиции, уникальный operation key, повторный запрос, query и receipt, если применимо. Physical return state не вычисляется из Pay refund. Способ возврата товара и доставки, сроки и обязанности решаются Q-02/Q-07, не по догадке документа.
 

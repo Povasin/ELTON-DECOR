@@ -23,7 +23,7 @@
 
 ## Первый пакет работы
 
-После BA review принять или изменить стек; получить результат Ozon contract spike; согласовать internal API с Frontend и Backend; уточнить provider IDs, bundle split/partial refund и guest order claim. Довести proposal contracts до версии, пригодной для реализации.
+После BA review уточнить архитектуру первого этапа, минимальные DB/API и план основы приложений. Сценарий локальной заявки работает без Ozon/SMS/доставки и не создаёт платёжные факты. Стек/схема/внутренние interfaces выбираются для текущей реализации, с явным статусом технических решений. Ozon contract spike и provider IDs/bundle fulfillment/refund/guest account claim относятся к следующему коммерческому этапу и не блокируют bootstrap текущего.
 
 ## Готовность
 
