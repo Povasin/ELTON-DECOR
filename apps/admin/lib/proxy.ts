@@ -1,0 +1,4 @@
+export const REQUEST_HEADERS = ["accept", "content-type", "cookie", "if-match", "idempotency-key", "origin", "x-csrf-token", "x-request-id"] as const;
+export const RESPONSE_HEADERS = ["cache-control", "content-type", "etag", "idempotency-replayed", "retry-after", "x-content-type-options", "x-request-id"] as const;
+export function upstreamUrl(requestUrl: string, path: string[], base = process.env.ELTON_API_URL): URL { if (!base) throw new Error("ELTON_API_URL is not configured"); const target = new URL(`/api/v1/${path.map(encodeURIComponent).join("/")}`, base); target.search = new URL(requestUrl).search; return target; }
+export function forwardHeaders(request: Headers): Headers { const headers = new Headers(); for (const name of REQUEST_HEADERS) { const value = request.get(name); if (value) headers.set(name, value); } return headers; }

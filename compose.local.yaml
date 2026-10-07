@@ -1,0 +1,25 @@
+services:
+  pg:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: elton_demo
+      POSTGRES_USER: elton_demo
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    secrets:
+      - pg_password
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elton_demo -d elton_demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+secrets:
+  pg_password:
+    file: ${ELTON_PG_PASSWORD_FILE:?Set an absolute path to the runtime PostgreSQL password file}
+
+volumes:
+  pg_data:

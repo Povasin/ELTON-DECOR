@@ -1,0 +1,23 @@
+[project]
+name = "elton-foundation"
+version = "0.1.0"
+requires-python = ">=3.12,<3.15"
+dependencies = ["elton-api", "elton-database"]
+
+[dependency-groups]
+dev = ["pytest>=8.4,<10", "httpx>=0.28,<0.29", "httpx2>=2,<3"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/api", "packages/database"]
+
+[tool.uv.sources]
+elton-api = { workspace = true }
+elton-database = { workspace = true }
+
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+testpaths = ["apps/api/tests", "packages/database/tests"]
+markers = ["postgres: requires an actual PostgreSQL database via ELTON_TEST_DATABASE_URL"]
